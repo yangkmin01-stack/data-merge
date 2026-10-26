@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>데이터 합치기 도우미</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one working column of numbered steps; the two files sit side by side on wide screens and stack on phones. */
+:root{
+  --bg:#f4f7f6; --surface:#ffffff; --ink:#17242a; --muted:#56676c; --line:#d6e0de; --line-strong:#b9c8c5;
+  --accent:#0d6b64; --accent-ink:#ffffff; --accent-soft:#e0f0ed;
+  --key:#a9560a; --key-soft:#fbeedd;
+  --warn:#a2392b; --warn-soft:#fbe8e5;
+  --code-bg:#edf2f1; --skip:#eef1f0;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10171a; --surface:#172126; --ink:#e4edef; --muted:#9aacb0; --line:#2a383d; --line-strong:#3a4b50;
+    --accent:#4dbfb3; --accent-ink:#06201c; --accent-soft:#163330;
+    --key:#f0a55c; --key-soft:#3a2914;
+    --warn:#f08d7f; --warn-soft:#3a1f1b;
+    --code-bg:#0e1518; --skip:#131c20;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10171a; --surface:#172126; --ink:#e4edef; --muted:#9aacb0; --line:#2a383d; --line-strong:#3a4b50;
+  --accent:#4dbfb3; --accent-ink:#06201c; --accent-soft:#163330;
+  --key:#f0a55c; --key-soft:#3a2914;
+  --warn:#f08d7f; --warn-soft:#3a1f1b;
+  --code-bg:#0e1518; --skip:#131c20;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+header{display:flex;flex-direction:column;gap:8px}
+h1{font-size:1.75rem;line-height:1.25;margin:0;font-weight:700;letter-spacing:-0.01em;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:62ch}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--key-soft);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:.92rem}
+.banner b{color:var(--key)}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 18px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.step-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.num{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 9px;font-weight:500}
+h2{font-size:1.15rem;margin:0;font-weight:600}
+.step-head p{margin:0;color:var(--muted);font-size:.9rem;flex-basis:100%}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.file{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.file-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.file-name{font-weight:600;word-break:break-all}
+.tag{font-size:.75rem;background:var(--key-soft);color:var(--key);border-radius:999px;padding:1px 8px;margin-left:6px;font-weight:500;white-space:nowrap}
+.meta{font-size:.82rem;color:var(--muted)}
+.sub{font-size:.88rem;font-weight:600;margin:0}
+.sub small{font-weight:400;color:var(--muted)}
+.btn{font:inherit;font-size:.9rem;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn:focus-visible,input:focus-visible,select:focus-visible,tr[tabindex]:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+select,input[type=text]{font:inherit;font-size:.92rem;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:7px;padding:6px 9px;max-width:100%}
+input[type=text]{font-family:var(--font-mono)}
+input.bad{border-color:var(--warn);background:var(--warn-soft)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;max-width:100%}
+.scroll.tall{max-height:340px;overflow-y:auto}
+table{border-collapse:collapse;font-size:.82rem;font-variant-numeric:tabular-nums;width:max-content;min-width:100%}
+th,td{border-bottom:1px solid var(--line);padding:5px 9px;text-align:left;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+th{background:var(--code-bg);font-weight:600;position:sticky;top:0}
+td.n,th.n{text-align:right}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+td.rn{color:var(--muted);font-family:var(--font-mono);font-size:.75rem;width:1%}
+.raw tr{cursor:pointer}
+.raw tr.above td{background:var(--skip);color:var(--muted)}
+.raw tr.hdr td{background:var(--accent-soft);font-weight:600}
+.raw tr:hover td{outline:1px solid var(--line-strong)}
+td.keycol,th.keycol{background:var(--key-soft)!important;color:var(--ink)}
+td.valcol,th.valcol{background:var(--accent-soft)!important}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);border-radius:999px;padding:3px 11px 3px 8px;font-size:.85rem;cursor:pointer;background:var(--surface)}
+.chip:has(input:checked){background:var(--accent-soft);border-color:var(--accent)}
+.chip input{accent-color:var(--accent);margin:0}
+.check{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.aggs{display:flex;flex-direction:column;gap:6px}
+.agg-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:.9rem}
+.agg-name{min-width:min(100%,180px);font-weight:500;overflow-wrap:anywhere}
+.check input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.warns{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.warns li{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:6px 10px;font-size:.85rem}
+.notes li{background:var(--accent-soft);color:var(--ink)}
+.names{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,220px);gap:8px 12px;align-items:center}
+.names .from{font-size:.88rem;min-width:0;overflow-wrap:anywhere}
+.names .from span{color:var(--muted)}
+.names .arrow{color:var(--muted)}
+.err{grid-column:1/-1;color:var(--warn);font-size:.82rem;margin-top:-4px}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stat{border:1px solid var(--line);border-radius:8px;padding:7px 12px;display:flex;flex-direction:column;min-width:120px}
+.stat b{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.78rem;color:var(--muted)}
+.chart-wrap{border:1px solid var(--line);border-radius:10px;padding:8px;max-width:100%;overflow:hidden}
+.chart-wrap svg{width:100%;height:auto;display:block}
+.rbox{font-size:.92rem}
+.rbox b{font-family:var(--font-mono)}
+pre{margin:0;background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto;font-family:var(--font-mono);font-size:.8rem;line-height:1.55;white-space:pre}
+details{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--surface)}
+summary{cursor:pointer;font-weight:600}
+details[open] summary{margin-bottom:10px}
+.status{font-size:.88rem;color:var(--muted);min-height:1.4em}
+.status.ok{color:var(--accent)}
+.status.bad{color:var(--warn)}
+textarea{width:100%;min-height:120px;font-family:var(--font-mono);font-size:.78rem;background:var(--code-bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+.empty{color:var(--muted);font-size:.9rem;border:1px dashed var(--line-strong);border-radius:8px;padding:14px;text-align:center}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+@media (max-width:560px){
+  .names{grid-template-columns:minmax(0,1fr)}
+  .names .arrow{display:none}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<div class="wrap">
+  <header>
+    <h1>데이터 합치기 도우미</h1>
+    <p class="lede">연도가 같은 두 데이터 파일을 한 표로 합쳐 코랩에서 바로 쓸 수 있는 CSV로 만듭니다. 파일은 내 브라우저 안에서만 처리되고 어디에도 올라가지 않습니다.</p>
+    <div class="banner" id="banner"></div>
+  </header>
+
+  <section class="step" aria-labelledby="s1">
+    <div class="step-head"><span class="num">1</span><h2 id="s1">파일 올리고 정리하기</h2>
+      <p>파일마다 머리글 줄, 행렬 전환, 연도 열, 가져올 값 열을 차례로 정하세요. CSV와 엑셀 파일을 올릴 수 있습니다.</p></div>
+    <div class="files">
+      <div class="file" id="file0"></div>
+      <div class="file" id="file1"></div>
+    </div>
+  </section>
+
+  <section class="step" aria-labelledby="s2">
+    <div class="step-head"><span class="num">2</span><h2 id="s2">열 이름 정하기</h2>
+      <p>코랩에서 쓰기 쉽게 영어 소문자, 숫자, 밑줄(_)로만 짓습니다. 예: year, emission, gdp</p></div>
+    <div class="names" id="names"></div>
+  </section>
+
+  <section class="step" aria-labelledby="s3">
+    <div class="step-head"><span class="num">3</span><h2 id="s3">합친 결과 확인하기</h2>
+      <p>두 파일에 모두 있는 연도만 한 줄로 합칩니다.</p></div>
+    <div id="result"></div>
+  </section>
+
+  <section class="step" aria-labelledby="s4">
+    <div class="step-head"><span class="num">4</span><h2 id="s4">산점도로 살펴보기</h2>
+      <p>X와 y를 골라 두 값 사이에 관계가 보이는지 확인하세요.</p></div>
+    <div id="scatter"></div>
+  </section>
+
+  <section class="step" aria-labelledby="s5">
+    <div class="step-head"><span class="num">5</span><h2 id="s5">저장하고 코랩으로 가져가기</h2>
+      <p>CSV로 내려받아 코랩 왼쪽 파일 탭에 올리거나, 붙여넣기용 코드를 복사해 코랩 셀에 붙여넣으세요.</p></div>
+    <div id="save"></div>
+  </section>
+
+  <details id="codebox">
+    <summary>지금 한 작업을 pandas 코드로 보기</summary>
+    <div class="row" style="margin-bottom:10px"><button class="btn" id="copyCode" type="button">코드 복사</button><span class="status" id="codeStatus"></span></div>
+    <pre id="code"></pre>
+  </details>
+</div>
+
+<script>
+(function(){
+const SAMPLE_A = [
+  '온실가스별 배출 추이',
+  '"[단위: 백만톤 CO2eq.]"',
+  '항목,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023',
+  '전체,722.65,725.05,735.56,756.27,780.14,757.15,709.47,739.51,722.03,707.20',
+  'CO₂,645.93,650.17,660.41,677.01,697.58,673.29,623.83,650.98,633.77,621.68',
+  'CH₄,37.94,37.81,37.59,37.88,37.11,35.90,35.51,35.28,35.06,34.24',
+  'N₂O,10.11,9.95,10.20,10.46,10.72,10.85,10.56,10.68,10.59,10.61',
+  'HFCs,14.58,16.07,18.13,20.49,23.60,25.23,27.91,30.31,33.06,33.63'
+].join('\n');
+const SAMPLE_B = [
+  '시점,국내총생산(GDP)',
+  '2014년,"1,787,974.9"','2015년,"1,840,189.0"','2016년,"1,898,551.1"','2017년,"1,963,732.0"',
+  '2018년,"2,026,102.4"','2019년,"2,072,982.4"','2020년,"2,058,466.5"','2021년,"2,155,142.9"',
+  '2022년,"2,217,828.2"','2023년,"2,250,707.4"','2024년,"2,300,068.7"'
+].join('\n');
+
+const YEAR_RE = /((?:19|20)\d{2})/;
+const QUARTER_RE = /\/\s*4|분기|Q[1-4]\b|\d{4}\s*\.\s*0?[1-9]\b|\d{4}\s*-\s*\d{2}\b|월/;
+const EMPTY = new Set(['','-','…','...','x','X','NA','N/A','nan','NaN','null','NULL']);
+const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+const newFile = () => ({ok:false, name:'', sample:false, kind:'', enc:'', sep:',', wb:null, sheets:[], sheet:'', raw:[], header:0, two:false, autoTwo:false, transpose:false, autoT:false, key:null, vals:[], headers:[], data:[], cats:[], filters:{}, pick:[], catOpts:{}, dep:{}, agg:'mean', aggMap:{}, partial:[], dropPartial:true, annualMix:false, fullSize:null, dup:false, tidy:[], noYear:0});
+const S = {files:[newFile(), newFile()], names:{}, dropNA:true, sx:null, sy:null, outName:'merged_data.csv'};
+const LETTER = ['A','B'];
+const VAR = ['a','b'];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pyStr = s => "'" + String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'") + "'";
+
+function num(v){
+  const s = String(v ?? '').trim().replace(/,/g,'').replace(/\s+/g,'');
+  if (EMPTY.has(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function yearOf(v){ const m = String(v ?? '').match(YEAR_RE); return m ? +m[1] : null; }
+
+function parseCSV(text){
+  text = text.replace(/^﻿/, '');
+  const head = text.split(/\r?\n/).slice(0, 8).join('\n');
+  const cnt = ch => (head.split(ch).length - 1);
+  const tabs = cnt('\t'), commas = cnt(','), semis = cnt(';');
+  const sep = (tabs > commas && tabs >= semis) ? '\t' : (semis > commas ? ';' : ',');
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === sep){ row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r'){
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(f); rows.push(row); row = []; f = '';
+    } else f += c;
+  }
+  if (f !== '' || row.length){ row.push(f); rows.push(row); }
+  return {rows: rows.filter(r => !(r.length === 1 && r[0].trim() === '')), sep};
+}
+
+function decode(buf){
+  try { return {text: new TextDecoder('utf-8', {fatal:true}).decode(buf), enc:'utf-8'}; }
+  catch(e){ return {text: new TextDecoder('euc-kr').decode(buf), enc:'cp949'}; }
+}
+
+function sheetRows(wb, name){
+  const ws = wb.Sheets[name];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:'', blankrows:true}).map(r => r.map(c => String(c ?? '')));
+  while (rows.length && rows[rows.length-1].every(c => c.trim() === '')) rows.pop();
+  return rows;
+}
+
+function guessHeader(raw){
+  const lim = Math.min(raw.length, 15);
+  const filled = r => r.filter(c => String(c).trim() !== '').length;
+  let max = 0; for (let i = 0; i < lim; i++) max = Math.max(max, filled(raw[i]));
+  for (let i = 0; i < lim; i++){ const n = filled(raw[i]); if (n >= 2 && n >= max * 0.6) return i; }
+  return 0;
+}
+function yearLikeCount(arr){ return arr.filter(c => /^\s*(?:19|20)\d{2}\s*(년|년도)?\s*$/.test(String(c))).length; }
+
+function setRaw(fi, raw){
+  const f = S.files[fi];
+  f.raw = raw;
+  f.header = guessHeader(raw);
+  f.transpose = yearLikeCount(raw[f.header] || []) >= 3;
+  f.autoT = f.transpose;
+  f.two = !f.transpose && looksTwo(raw, f.header);
+  f.autoTwo = f.two;
+  f.key = null; f.vals = []; f.filters = {}; f.agg = 'mean';
+  f.ok = raw.length > 0;
+  process(f, true);
+}
+function looksTwo(raw, h){
+  const a = raw[h], b = raw[h + 1];
+  if (!a || !b) return false;
+  const t = c => String(c ?? '').trim();
+  const nums = b.filter(c => num(c) !== null).length;
+  if (nums > 0 || !b.some(c => t(c) !== '')) return false;
+  const same = b.some((c, j) => t(c) !== '' && t(c) === t(a[j]));
+  // 엑셀 병합 머리글: 윗줄에 빈칸이 있고, 아랫줄은 글자만, 그 다음 줄부터 숫자
+  const merged = a.some(c => t(c) === '') && raw[h + 2] && raw[h + 2].some(c => num(c) !== null);
+  return same || !!merged;
+}
+
+function process(f, fresh){
+  if (!f.raw.length){ f.headers = []; f.data = []; return; }
+  let table = f.raw.slice(f.header);
+  const w = Math.max(...table.map(r => r.length));
+  table = table.map(r => { const c = r.slice(); while (c.length < w) c.push(''); return c; });
+  if (f.transpose){ table = table[0].map((_, j) => table.map(r => r[j])); f.two = false; }
+  const hr = f.two ? 2 : 1;
+  const seen = {};
+  const top = (table[0] || []).map(c => String(c).trim());
+  if (f.two && table[1]){
+    // 가로로 병합된 칸은 왼쪽 이름을 이어 받기
+    for (let i = 1; i < top.length; i++) if (top[i] === '' && String(table[1][i]).trim() !== '') top[i] = top[i - 1];
+  }
+  f.headers = top.map((h, i) => {
+    const parts = [h];
+    if (f.two) parts.push(String(table[1] ? table[1][i] : '').trim());
+    let n = [...new Set(parts.filter(Boolean))].join(' ') || ('열' + (i + 1));
+    if (seen[n]){ seen[n]++; n = n + '_' + seen[n]; } else seen[n] = 1;
+    return n;
+  });
+  f.data = table.slice(hr).filter(r => r.some(c => String(c).trim() !== ''));
+  const nc = f.headers.length;
+  if (f.key == null || f.key >= nc) f.key = detectKey(f);
+  // 항목처럼 글자가 반복되는 열 (거르기 대상)
+  f.cats = [];
+  for (let i = 0; i < nc; i++){
+    if (i === f.key) continue;
+    const col = f.data.map(r => String(r[i]).trim()).filter(v => v !== '');
+    if (col.length < 2) continue;
+    const numeric = col.filter(v => num(v) !== null).length;
+    const distinct = new Set(col).size;
+    if (numeric < col.length * 0.5 && distinct >= 2 && distinct <= 80 && distinct < col.length) f.cats.push(i);
+  }
+  fixFilters(f);
+  f.vals = f.vals.filter(i => i < nc && i !== f.key && !f.cats.includes(i));
+  if (!f.vals.length){
+    const rows = filteredRows(f);
+    for (let i = 0; i < nc; i++){
+      if (i === f.key || f.cats.includes(i)) continue;
+      const col = rows.map(r => r[i]);
+      const ok = col.filter(v => num(v) !== null).length;
+      if (col.length && ok >= col.length * 0.6){ f.vals = [i]; break; }
+    }
+  }
+  buildTidy(f);
+}
+/* 항목 거르기
+   - 첫 번째 항목 열(primary)은 여러 개를 고를 수 있고, 고른 항목마다 열이 생김
+   - 다른 항목 열은 하나만 고름. 단위처럼 항목에 따라 저절로 정해지는 열은 거르지 않음 */
+const tr = v => String(v ?? '').trim();
+const uniq = arr => [...new Set(arr)];
+function primaryOptions(f){ return f.cats.length ? uniq(f.data.map(r => tr(r[f.cats[0]])).filter(v => v !== '')) : []; }
+function catOptions(f, i){ return i === f.cats[0] ? primaryOptions(f) : (f.catOpts[i] || []); }
+function fixFilters(f){
+  f.catOpts = {}; f.dep = {};
+  Object.keys(f.filters).forEach(k => { if (!f.cats.includes(+k) || +k === f.cats[0]) delete f.filters[k]; });
+  if (!f.cats.length){ f.pick = []; return; }
+  const P = f.cats[0], popts = primaryOptions(f);
+  f.pick = (f.pick || []).filter(v => popts.includes(v));
+  if (!f.pick.length) f.pick = popts.slice(0, 1);
+  const done = [];
+  f.cats.slice(1).forEach(j => {
+    const R = f.data.filter(r => f.pick.includes(tr(r[P])) && done.every(k => tr(r[k]) === f.filters[k]));
+    const per = f.pick.map(p => uniq(R.filter(r => tr(r[P]) === p).map(r => tr(r[j])).filter(v => v !== '')));
+    if (per.every(s => s.length <= 1)){ f.dep[j] = per.map(s => s[0]).filter(Boolean); delete f.filters[j]; return; }
+    let opts = per.reduce((acc, s) => acc.filter(v => s.includes(v)));
+    if (!opts.length) opts = uniq(per.flat());
+    f.catOpts[j] = opts;
+    if (!opts.includes(f.filters[j])) f.filters[j] = opts[0];
+    done.push(j);
+  });
+}
+function activeFilters(f){ return f.cats.slice(1).filter(j => f.filters[j] != null); }
+function filteredRows(f){
+  if (!f.cats.length) return f.data;
+  const P = f.cats[0], act = activeFilters(f);
+  return f.data.filter(r => f.pick.includes(tr(r[P])) && act.every(j => tr(r[j]) === f.filters[j]));
+}
+const colKey = (ci, p) => p == null ? String(ci) : ci + '|' + p;
+function fileCols(f){
+  const picks = f.cats.length ? f.pick : [null];
+  const out = [];
+  // 값 열 이름이 '데이터', '값'처럼 뜻이 없으면 항목 이름만 씀
+  const plain = f.vals.length === 1 && /^(데이터|값|수치|자료|dt|data|value)$/i.test(f.headers[f.vals[0]]);
+  picks.forEach(p => f.vals.forEach(ci => out.push({ci, p, key: colKey(ci, p), label: p == null ? f.headers[ci] : (plain ? p : (f.pick.length > 1 ? p + ' ' + f.headers[ci] : f.headers[ci]))})));
+  return out;
+}
+function buildTidy(f){
+  const rows = filteredRows(f);
+  const groups = new Map(); let noYear = 0;
+  rows.forEach(r => {
+    const y = f.key == null ? null : yearOf(r[f.key]);
+    if (y == null){ if (f.vals.some(ci => num(r[ci]) !== null)) noYear++; return; }
+    if (!groups.has(y)) groups.set(y, []);
+    groups.get(y).push(r);
+  });
+  f.noYear = noYear;
+  const P = f.cats[0];
+  const picks = f.cats.length ? f.pick : [null];
+  const sub = (g, p) => p == null ? g : g.filter(r => tr(r[P]) === p);
+  // 같은 해에 연간 값(예: "2000")과 월별 값(예: "2000.01")이 함께 있으면 연간 값만 씀
+  f.annualMix = false;
+  const eff = new Map();
+  groups.forEach((g, y) => {
+    const m = new Map(); let size = 0, annual = true;
+    picks.forEach(p => {
+      let gp = sub(g, p);
+      const ann = gp.filter(r => isAnnualKey(r[f.key]));
+      if (ann.length && ann.length < gp.length){ gp = ann; f.annualMix = true; }
+      if (!(gp.length && ann.length === gp.length)) annual = false;
+      m.set(p, gp); size = Math.max(size, gp.length);
+    });
+    eff.set(y, {m, size, annual});
+  });
+  let size = 0; eff.forEach(e => { size = Math.max(size, e.size); });
+  f.groupSize = size; f.dup = size > 1;
+  // 덜 채워진 해: 다른 해보다 줄이 적은 해, 또는 다른 해에는 있는 연간 값이 없는 해
+  f.partial = [];
+  if (f.dup || f.annualMix){
+    const monthly = [...eff.entries()].filter(([, e]) => !e.annual);
+    const cnt = {}; monthly.forEach(([, e]) => { cnt[e.size] = (cnt[e.size] || 0) + 1; });
+    const mode = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || b - a)[0];
+    f.fullSize = f.annualMix ? null : mode;
+    monthly.forEach(([y, e]) => { if (f.annualMix || e.size < mode) f.partial.push({y, n: e.size}); });
+    f.partial.sort((a, b) => a.y - b.y);
+  }
+  const skip = new Set(f.dropPartial ? f.partial.map(x => x.y) : []);
+  f.tidy = [...eff.entries()].filter(([y]) => !skip.has(y)).sort((p, q) => p[0] - q[0]).map(([y, e]) => {
+    const o = {year: y};
+    picks.forEach(p => {
+      const gp = e.m.get(p), how = aggOf(f, p);
+      f.vals.forEach(ci => {
+        const k = colKey(ci, p);
+        const vs = gp.map(r => num(r[ci])).filter(v => v != null);
+        if (!vs.length){ o[k] = null; return; }
+        if (gp.length === 1){ o[k] = vs[0]; return; }
+        const s = vs.reduce((a, b) => a + b, 0);
+        o[k] = how === 'sum' ? +s.toFixed(10) : +(s / vs.length).toFixed(10);
+      });
+    });
+    return o;
+  });
+}
+function isAnnualKey(v){ return /^\s*(?:19|20)\d{2}\s*(?:년|년도)?\s*$/.test(String(v ?? '')); }
+// 쌓이는 양(판매량, 배출량 등)은 합계, 비율·수준(%, 률, 인구 등)은 평균을 기본으로
+function guessAgg(label){
+  return (/량|금액|건수|판매|배출|강수|생산|소비|매출|수입|수출/.test(label) && !/률|율|%|지수|당 |1인당|평균/.test(label)) ? 'sum' : 'mean';
+}
+function aggOf(f, p){
+  const k = p == null ? '' : p;
+  if (!f.aggMap[k]) f.aggMap[k] = guessAgg(p == null ? f.vals.map(ci => f.headers[ci]).join(' ') : p);
+  return f.aggMap[k];
+}
+function detectKey(f){
+  const nc = f.headers.length;
+  for (let i = 0; i < nc; i++) if (/연도|년도|시점|기간|year|date/i.test(f.headers[i])) return i;
+  let best = null, bestScore = 0;
+  for (let i = 0; i < nc; i++){
+    const col = f.data.map(r => r[i]);
+    if (!col.length) continue;
+    const s = col.filter(v => yearOf(v) !== null).length / col.length;
+    if (s > bestScore){ bestScore = s; best = i; }
+  }
+  return bestScore >= 0.6 ? best : null;
+}
+
+function suggest(label, used){
+  const rules = [[/1인당.*배출/,'emission_per_capita'],[/gdp당.*배출/i,'emission_per_gdp'],[/실업자/,'unemployed'],[/취업자/,'employed'],[/배출/,'emission'],[/국내총생산|gdp/i,'gdp'],[/인구/,'population'],[/재활용/,'recycling'],[/기온|온도/,'temperature'],[/강수/,'rain'],[/전력|전기/,'electricity'],[/에너지/,'energy'],[/실업률/,'unemployment_rate'],[/고용률/,'employment_rate'],[/^(전체|총계|합계|계)$/,'total']];
+  let base = null;
+  for (const [re, n] of rules) if (re.test(label)){ base = n; break; }
+  if (!base){
+    const a = String(label).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+    base = /^[a-z]/.test(a) ? a.slice(0, 30) : 'value';
+  }
+  let n = base, k = 2;
+  if (base === 'value'){ n = 'value1'; while (used.has(n)) n = 'value' + (k++); return n; }
+  while (used.has(n)) n = base + '_' + (k++);
+  return n;
+}
+
+function columns(){
+  const out = [{id:'year', label:'연도 (기준 열)', fi:null, ci:null}];
+  S.files.forEach((f, fi) => { if (!f.ok) return; fileCols(f).forEach(c => out.push({id: fi + ':' + c.label, label: c.label, fi, ci: c.ci, p: c.p, key: c.key})); });
+  const used = new Set();
+  out.forEach(c => { if (S.names[c.id] != null) used.add(S.names[c.id]); });
+  out.forEach(c => { if (S.names[c.id] == null){ c.name = c.id === 'year' ? 'year' : suggest(c.label, used); used.add(c.name); } else c.name = S.names[c.id]; });
+  const count = {}; out.forEach(c => count[c.name] = (count[c.name] || 0) + 1);
+  out.forEach(c => {
+    c.err = !NAME_RE.test(c.name) ? '영어, 숫자, 밑줄(_)만 쓰고 숫자로 시작하지 마세요.' : (count[c.name] > 1 ? '다른 열과 이름이 같아요.' : '');
+  });
+  return out;
+}
+
+function fileWarnings(f){
+  const w = [];
+  if (!f.ok) return w;
+  if (f.key == null) w.push('연도 열을 찾지 못했어요. 머리글 줄과 행렬 전환을 확인하고, 연도 열을 직접 골라 주세요.');
+  else if (f.noYear) w.push(f.noYear + '개 줄에서 연도를 읽지 못해 합칠 때 빠집니다.');
+  if (!f.vals.length) w.push('가져올 값 열을 하나 이상 골라 주세요.');
+  const rows = filteredRows(f);
+  f.vals.forEach(ci => {
+    const col = rows.map(r => r[ci]);
+    const bad = col.filter(v => num(v) === null).length;
+    if (col.length && bad > col.length / 2) w.push('"' + f.headers[ci] + '" 열은 숫자가 아닌 값이 많아요. 다른 열을 골라야 할 수 있어요.');
+  });
+  return w;
+}
+
+function merge(cs){
+  const A = S.files[0], B = S.files[1];
+  if (!A.ok || !B.ok || A.key == null || B.key == null) return null;
+  const tab = (f, fi) => f.tidy.map(t => { const o = {year: t.year}; cs.filter(c => c.fi === fi).forEach(c => o[c.id] = t[c.key] ?? null); return o; });
+  const ta = tab(A, 0), tb = tab(B, 1);
+  const yA = new Set(ta.filter(r => r.year != null).map(r => r.year));
+  const yB = new Set(tb.filter(r => r.year != null).map(r => r.year));
+  let rows = [];
+  ta.forEach(ra => { if (ra.year == null) return; tb.forEach(rb => { if (rb.year === ra.year) rows.push(Object.assign({}, ra, rb)); }); });
+  const total = rows.length;
+  if (S.dropNA) rows = rows.filter(r => cs.every(c => r[c.id] != null));
+  rows.sort((p, q) => p.year - q.year);
+  return {rows, dropped: total - rows.length, blanks: S.dropNA ? 0 : rows.filter(r => cs.some(c => r[c.id] == null)).length,
+    onlyA: [...yA].filter(y => !yB.has(y)).sort((p,q)=>p-q), onlyB: [...yB].filter(y => !yA.has(y)).sort((p,q)=>p-q)};
+}
+
+function fmt(v, isYear){
+  if (v == null) return '';
+  if (isYear) return String(v);
+  return v.toLocaleString('ko-KR', {maximumFractionDigits: 6});
+}
+function rangeText(ys){
+  if (!ys.length) return '없음';
+  const parts = []; let s = ys[0], p = ys[0];
+  for (let i = 1; i <= ys.length; i++){
+    if (ys[i] === p + 1){ p = ys[i]; continue; }
+    parts.push(s === p ? String(s) : s + '~' + p);
+    s = ys[i]; p = ys[i];
+  }
+  return parts.join(', ');
+}
+
+/* ---------- rendering ---------- */
+function renderBanner(){
+  const anySample = S.files.some(f => f.sample);
+  $('#banner').innerHTML = anySample
+    ? '<span><b>예시 데이터</b>가 들어 있어요. 온실가스 배출량(지표누리)과 국내총생산(한국은행 국민계정 그래프)의 값을 옮겨 만든 연습용 파일입니다. 파일 A, B에 내 파일을 올리면 바뀝니다.</span>'
+    : '<span>내 파일로 작업 중이에요.</span><button class="btn" type="button" id="loadSample">예시 데이터 다시 불러오기</button>';
+  const b = $('#loadSample'); if (b) b.onclick = loadSamples;
+}
+
+function renderFile(fi){
+  const f = S.files[fi], box = $('#file' + fi);
+  const upload = '<label class="btn' + (f.ok ? '' : ' primary') + '" for="up' + fi + '">' + (f.ok ? '다른 파일 올리기' : '파일 올리기') + '</label><input type="file" id="up' + fi + '" accept=".csv,.tsv,.txt,.xlsx,.xls">';
+  let h = '<div class="file-top"><div><span class="sub">파일 ' + LETTER[fi] + '</span></div>' + upload + '</div>';
+  if (!f.ok){
+    h += '<div class="empty">CSV나 엑셀 파일을 올려 주세요.<br>지표누리, KOSIS에서 내려받은 파일을 그대로 올려도 됩니다.</div>';
+    box.innerHTML = h; bindUpload(fi); return;
+  }
+  h += '<div><div class="file-name">' + esc(f.name) + (f.sample ? '<span class="tag">예시</span>' : '') + '</div>' +
+       '<div class="meta">' + (f.kind === 'excel' ? '엑셀 파일' : 'CSV 파일 · 글자 인코딩 ' + (f.enc === 'cp949' ? 'CP949(한글 윈도우 형식)' : 'UTF-8')) + ' · ' + f.raw.length + '줄</div></div>';
+  if (f.kind === 'excel' && f.sheets.length > 1){
+    h += '<div class="row"><label class="sub" for="sheet' + fi + '">시트</label><select id="sheet' + fi + '">' + f.sheets.map(s => '<option' + (s === f.sheet ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div>';
+  }
+  // raw grid
+  const maxR = Math.min(f.raw.length, Math.max(14, f.header + 6)), maxC = Math.min(Math.max(...f.raw.slice(0, maxR).map(r => r.length)), 10);
+  let g = '<div class="scroll"><table class="raw"><tbody>';
+  for (let i = 0; i < maxR; i++){
+    const cls = i < f.header ? 'above' : ((i === f.header || (f.two && i === f.header + 1)) ? 'hdr' : '');
+    g += '<tr tabindex="0" data-row="' + i + '" class="' + cls + '" title="' + (i + 1) + '번째 줄을 머리글로 정하기"><td class="rn">' + (i + 1) + '</td>';
+    for (let j = 0; j < maxC; j++) g += '<td>' + esc(f.raw[i][j] ?? '') + '</td>';
+    g += '</tr>';
+  }
+  g += '</tbody></table></div>';
+  const more = (f.raw.length > maxR ? ' 아래로 ' + (f.raw.length - maxR) + '줄 더 있어요.' : '');
+  let n = 0; const no = () => '①②③④⑤⑥⑦'[n++];
+  h += '<p class="sub">' + no() + ' 머리글 줄 고르기 <small>표의 제목 줄(열 이름이 적힌 줄)을 누르세요. 그 위의 줄은 버립니다.' + more + '</small></p>' + g;
+  if (!f.transpose){
+    h += '<label class="check"><input type="checkbox" id="two' + fi + '"' + (f.two ? ' checked' : '') + '> 머리글이 두 줄이에요 (예: 1줄 "계", 2줄 "15-29세")</label>' +
+         (f.autoTwo && f.two ? '<div class="meta">두 줄짜리 머리글로 보여 자동으로 켰어요. 열 이름은 두 줄을 이어 붙여 만들어요.</div>' : '');
+  }
+  h += '<p class="sub">' + no() + ' 행렬 전환</p><label class="check"><input type="checkbox" id="tr' + fi + '"' + (f.transpose ? ' checked' : '') + '> 연도가 가로(맨 위 줄)에 펼쳐져 있어서 세로로 바꾸기</label>' +
+       (f.autoT ? '<div class="meta">연도가 가로로 놓여 있어 자동으로 켰어요.</div>' : '');
+  h += '<p class="sub">' + no() + ' 기준 열(연도) 고르기</p><select id="key' + fi + '"><option value="">고르세요</option>' +
+       f.headers.map((nm, i) => '<option value="' + i + '"' + (i === f.key ? ' selected' : '') + '>' + esc(nm) + '</option>').join('') + '</select>';
+  if (f.cats.length){
+    const P = f.cats[0], popts = primaryOptions(f);
+    h += '<p class="sub">' + no() + ' 항목 고르기 <small>"' + esc(f.headers[P]) + '" 열에 여러 항목이 섞여 있어요. 쓸 항목을 체크하세요. 여러 개를 고르면 항목마다 열이 생겨요.</small></p>' +
+      '<div class="chips">' + popts.map((o, k) => '<label class="chip"><input type="checkbox" data-pick="' + k + '"' + (f.pick.includes(o) ? ' checked' : '') + '>' + esc(o) + '</label>').join('') + '</div>';
+    const rest = f.cats.slice(1);
+    if (rest.length){
+      h += '<div class="row">' + rest.map(i => {
+        if (f.dep[i]) return '<span class="meta">' + esc(f.headers[i]) + ': ' + esc(uniq(f.dep[i]).join(', ')) + ' (항목에 따라 정해져 있어요)</span>';
+        const opts = catOptions(f, i);
+        if (opts.length <= 1) return '<span class="meta">' + esc(f.headers[i]) + ': ' + esc(opts[0] ?? '') + '</span>';
+        return '<label class="sub" for="cat' + fi + '_' + i + '">' + esc(f.headers[i]) + '</label><select id="cat' + fi + '_' + i + '" data-cat="' + i + '">' +
+          opts.map(o => '<option' + (o === f.filters[i] ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+      }).join('') + '</div>';
+    }
+  }
+  h += '<p class="sub">' + no() + ' 가져올 값 열 고르기 <small>X나 y로 쓸 열만 고르세요.</small></p><div class="chips">' +
+       f.headers.map((nm, i) => (i === f.key || f.cats.includes(i)) ? '' : '<label class="chip"><input type="checkbox" data-val="' + i + '"' + (f.vals.includes(i) ? ' checked' : '') + '>' + esc(nm) + '</label>').join('') + '</div>';
+  if (f.dup || f.annualMix || f.partial.length){
+    const picks = f.cats.length ? f.pick : [null];
+    h += '<p class="sub">' + no() + ' 연도별로 묶기 <small>' + (f.dup ? '한 해에 최대 ' + f.groupSize + '줄(월별·분기별 자료)이 있어 한 줄로 묶어요.' : '연도마다 한 줄로 정리해요.') + '</small></p>';
+    if (f.annualMix) h += '<div class="meta">같은 해에 연간 값과 월별(분기별) 값이 함께 들어 있어요. 연간 값이 있는 해는 <b>연간 값을 그대로</b> 썼어요.</div>';
+    if (f.dup){
+      h += '<div class="aggs">' + picks.map((p, k) => {
+        const how = aggOf(f, p);
+        return '<div class="agg-row"><span class="agg-name">' + esc(p == null ? '값' : p) + '</span>' +
+          '<label class="check"><input type="radio" name="agg' + fi + '_' + k + '" data-aggp="' + k + '" value="mean"' + (how === 'mean' ? ' checked' : '') + '> 평균</label>' +
+          '<label class="check"><input type="radio" name="agg' + fi + '_' + k + '" data-aggp="' + k + '" value="sum"' + (how === 'sum' ? ' checked' : '') + '> 합계</label></div>';
+      }).join('') + '</div>' +
+        '<div class="meta">비율이나 수준(%, 실업률, 기온, 인구 수)은 <b>평균</b>, 그 기간 동안 쌓이는 양(판매량, 배출량, 강수량)은 <b>합계</b>가 맞아요. 항목 이름을 보고 미리 골라 두었으니 맞는지 확인하세요.</div>';
+    }
+    if (f.partial.length){
+      const list = f.partial.map(x => x.y + '년(' + x.n + '줄)').join(', ');
+      const why = f.annualMix ? '다른 해와 달리 연간 값이 없어요. 아직 끝나지 않은 해일 수 있어요.' : '다른 해(' + f.fullSize + '줄)보다 줄이 적어, 평균이나 합계가 다른 해와 맞지 않을 수 있어요.';
+      h += '<label class="check"><input type="checkbox" id="part' + fi + '"' + (f.dropPartial ? ' checked' : '') + '> 덜 채워진 해 빼기: ' + esc(list) + '</label><div class="meta">' + why + '</div>';
+    }
+  }
+  // tidy preview
+  if (f.key != null && f.vals.length){
+    const fc = fileCols(f);
+    let t = '<div class="scroll"><table><thead><tr><th class="keycol">연도</th>' + fc.map(c => '<th class="valcol n">' + esc(c.label) + '</th>').join('') + '</tr></thead><tbody>';
+    f.tidy.slice(0, 5).forEach(r => { t += '<tr><td>' + r.year + '</td>' + fc.map(c => '<td class="n">' + fmt(r[c.key]) + '</td>').join('') + '</tr>'; });
+    t += '</tbody></table></div>';
+    h += '<p class="sub">정리된 모습 <small>처음 5줄 · 전체 ' + f.tidy.length + '줄' + (f.dup ? ' · 연도별로 묶음' : '') + '</small></p>' + t +
+         '<div class="legend"><span><i class="sw" style="background:var(--key-soft);border:1px solid var(--key)"></i>기준 열</span><span><i class="sw" style="background:var(--accent-soft);border:1px solid var(--accent)"></i>값 열</span></div>';
+  }
+  const w = fileWarnings(f);
+  if (w.length) h += '<ul class="warns">' + w.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+  box.innerHTML = h;
+  bindUpload(fi);
+  box.querySelectorAll('tr[data-row]').forEach(tr => {
+    const pick = () => { f.header = +tr.dataset.row; f.two = !f.transpose && looksTwo(f.raw, f.header); f.autoTwo = f.two; f.key = null; f.vals = []; f.filters = {}; f.pick = []; process(f); renderAll(); };
+    tr.onclick = pick;
+    tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } };
+  });
+  const two = $('#two' + fi); if (two) two.onchange = () => { f.two = two.checked; f.autoTwo = false; f.key = null; f.vals = []; f.filters = {}; f.pick = []; process(f); renderAll(); };
+  const trc = $('#tr' + fi); trc.onchange = () => { f.transpose = trc.checked; f.autoT = false; f.key = null; f.vals = []; f.filters = {}; f.pick = []; process(f); renderAll(); };
+  const ks = $('#key' + fi); ks.onchange = () => { f.key = ks.value === '' ? null : +ks.value; f.vals = f.vals.filter(i => i !== f.key); f.filters = {}; f.pick = []; process(f); renderAll(); };
+  box.querySelectorAll('select[data-cat]').forEach(s => s.onchange = () => { f.filters[+s.dataset.cat] = s.value; fixFilters(f); buildTidy(f); renderAll(); });
+  box.querySelectorAll('input[data-pick]').forEach(cb => cb.onchange = () => {
+    const o = primaryOptions(f)[+cb.dataset.pick];
+    if (cb.checked) f.pick = uniq([...f.pick, o]);
+    else if (f.pick.length > 1) f.pick = f.pick.filter(x => x !== o);
+    else { cb.checked = true; return; }
+    const order = primaryOptions(f); f.pick.sort((p, q) => order.indexOf(p) - order.indexOf(q));
+    fixFilters(f); buildTidy(f); renderAll();
+  });
+  box.querySelectorAll('input[data-aggp]').forEach(r => r.onchange = () => {
+    if (!r.checked) return;
+    const picks = f.cats.length ? f.pick : [null];
+    const p = picks[+r.dataset.aggp];
+    f.aggMap[p == null ? '' : p] = r.value; buildTidy(f); renderAll();
+  });
+  const part = $('#part' + fi); if (part) part.onchange = () => { f.dropPartial = part.checked; buildTidy(f); renderAll(); };
+  box.querySelectorAll('input[data-val]').forEach(cb => cb.onchange = () => {
+    const i = +cb.dataset.val;
+    f.vals = cb.checked ? [...new Set([...f.vals, i])].sort((p, q) => p - q) : f.vals.filter(x => x !== i);
+    buildTidy(f); renderAll();
+  });
+  const sh = $('#sheet' + fi); if (sh) sh.onchange = () => { f.sheet = sh.value; setRaw(fi, sheetRows(f.wb, f.sheet)); renderAll(); };
+}
+
+function bindUpload(fi){
+  const inp = $('#up' + fi);
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0]; if (!file) return;
+    await loadFile(fi, file);
+    inp.value = '';
+  };
+}
+
+async function loadFile(fi, file){
+  const f = S.files[fi];
+  const buf = await file.arrayBuffer();
+  const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+  Object.assign(f, newFile(), {name: file.name, sample: false});
+  try {
+    if (isExcel){
+      if (typeof XLSX === 'undefined') throw new Error('엑셀 파일을 읽는 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 CSV로 내려받아 올려 주세요.');
+      f.kind = 'excel';
+      f.wb = XLSX.read(new Uint8Array(buf), {type:'array'});
+      f.sheets = f.wb.SheetNames.slice(); f.sheet = f.sheets[0];
+      setRaw(fi, sheetRows(f.wb, f.sheet));
+    } else {
+      f.kind = 'csv';
+      const d = decode(buf); f.enc = d.enc;
+      const p = parseCSV(d.text); f.sep = p.sep;
+      setRaw(fi, p.rows);
+    }
+    if (!f.raw.length) throw new Error('파일에 읽을 수 있는 내용이 없어요.');
+  } catch (e){
+    Object.assign(f, newFile());
+    renderAll();
+    const box = $('#file' + fi);
+    box.insertAdjacentHTML('beforeend', '<ul class="warns"><li>' + esc(e.message || '파일을 읽지 못했어요.') + '</li></ul>');
+    return;
+  }
+  renderAll();
+}
+
+function renderNames(cs){
+  const box = $('#names');
+  if (cs.length <= 1){ box.innerHTML = '<div class="empty" style="grid-column:1/-1">파일마다 가져올 값 열을 고르면 여기에 나타납니다.</div>'; return; }
+  box.innerHTML = cs.map(c => {
+    const from = c.fi == null ? '<b>연도</b> <span>· 두 파일의 기준 열</span>' : '<b>' + esc(c.label) + '</b> <span>· 파일 ' + LETTER[c.fi] + '</span>';
+    return '<div class="from">' + from + '</div><div class="arrow">→</div><input type="text" data-name="' + esc(c.id) + '" value="' + esc(c.name) + '" aria-label="' + esc(c.label) + ' 열의 새 이름" spellcheck="false" autocomplete="off"' + (c.err ? ' class="bad"' : '') + '>' +
+      (c.err ? '<div class="err" data-err="' + esc(c.id) + '">' + esc(c.err) + '</div>' : '');
+  }).join('');
+  box.querySelectorAll('input[data-name]').forEach(inp => inp.oninput = () => {
+    S.names[inp.dataset.name] = inp.value.trim();
+    const cs2 = columns();
+    cs2.forEach(c => {
+      const el = box.querySelector('input[data-name="' + CSS.escape(c.id) + '"]');
+      if (!el) return;
+      el.classList.toggle('bad', !!c.err);
+      let er = box.querySelector('[data-err="' + CSS.escape(c.id) + '"]');
+      if (c.err){ if (!er){ el.insertAdjacentHTML('afterend', '<div class="err" data-err="' + esc(c.id) + '"></div>'); er = el.nextElementSibling; } er.textContent = c.err; }
+      else if (er) er.remove();
+    });
+    renderOutputs(cs2);
+  });
+}
+
+let LAST = null;
+function renderResult(cs, m){
+  const box = $('#result');
+  if (!m){ box.innerHTML = '<div class="empty">파일 A와 B를 모두 올리고 연도 열을 정하면 합친 결과가 나타납니다.</div>'; return; }
+  const ys = m.rows.map(r => r.year);
+  let h = '<div class="stats">' +
+    '<div class="stat"><b>' + m.rows.length + '줄</b><span>합친 데이터</span></div>' +
+    '<div class="stat"><b>' + (ys.length ? ys[0] + '~' + ys[ys.length - 1] : '-') + '</b><span>기간</span></div>' +
+    '<div class="stat"><b>' + cs.length + '개</b><span>열 수 (연도 포함)</span></div></div>';
+  const notes = [];
+  if (m.onlyA.length) notes.push('파일 A에만 있는 연도 ' + rangeText(m.onlyA) + '는 빠졌어요.');
+  if (m.onlyB.length) notes.push('파일 B에만 있는 연도 ' + rangeText(m.onlyB) + '는 빠졌어요.');
+  if (m.dropped) notes.push('빈 값이 있는 ' + m.dropped + '줄을 뺐어요.');
+  if (m.blanks) notes.push('빈 값이 있는 줄이 ' + m.blanks + '개 있어요. 코랩에서 회귀를 하려면 빼는 것이 좋아요.');
+  if (m.rows.length && m.rows.length < 20) notes.push('데이터가 ' + m.rows.length + '줄이에요. 훈련 데이터와 테스트 데이터로 나누기에는 적은 편이라, 기간이 더 긴 자료가 있는지 찾아보세요.');
+  if (!m.rows.length) notes.push('두 파일에 겹치는 연도가 없어요. 두 파일의 기간을 확인하세요.');
+  h += '<label class="check"><input type="checkbox" id="dropNA"' + (S.dropNA ? ' checked' : '') + '> 빈 값이 있는 줄은 빼기</label>';
+  if (notes.length) h += '<ul class="warns notes">' + notes.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+  if (m.rows.length){
+    h += '<div class="scroll tall"><table><thead><tr>' + cs.map(c => '<th class="n">' + esc(c.name) + '</th>').join('') + '</tr></thead><tbody>' +
+      m.rows.map(r => '<tr>' + cs.map(c => '<td class="n">' + fmt(c.id === 'year' ? r.year : r[c.id], c.id === 'year') + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  }
+  box.innerHTML = h;
+  $('#dropNA').onchange = e => { S.dropNA = e.target.checked; renderAll(); };
+}
+
+function niceTicks(min, max, count){
+  if (min === max){ const d = Math.abs(min) * 0.1 || 1; min -= d; max += d; }
+  const span = max - min;
+  let step = Math.pow(10, Math.floor(Math.log10(span / count)));
+  const err = span / count / step;
+  if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const t = []; for (let v = lo; v <= hi + step / 2; v += step) t.push(+v.toFixed(10));
+  return t;
+}
+function pearson(xs, ys){
+  const n = xs.length; if (n < 3) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++){ const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+  if (!sxx || !syy) return null;
+  return sxy / Math.sqrt(sxx * syy);
+}
+
+function renderScatter(cs, m){
+  const box = $('#scatter');
+  const ok = cs.filter(c => !c.err);
+  if (!m || !m.rows.length || ok.length < 2){ box.innerHTML = '<div class="empty">합친 결과가 생기면 산점도를 그릴 수 있어요.</div>'; return; }
+  const ids = ok.map(c => c.id);
+  const vals = ok.filter(c => c.id !== 'year');
+  if (!ids.includes(S.sx)) S.sx = vals.length > 1 ? vals[vals.length - 1].id : 'year';
+  if (!ids.includes(S.sy) || S.sy === S.sx) S.sy = (vals.find(c => c.id !== S.sx) || ok.find(c => c.id !== S.sx)).id;
+  const opt = sel => ok.map(c => '<option value="' + esc(c.id) + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+  const cx = ok.find(c => c.id === S.sx), cy = ok.find(c => c.id === S.sy);
+  const get = (r, c) => c.id === 'year' ? r.year : r[c.id];
+  const pts = m.rows.map(r => ({x: get(r, cx), y: get(r, cy), yr: r.year})).filter(p => p.x != null && p.y != null);
+  const W = 680, H = 400, ml = 92, mr = 24, mt = 18, mb = 58;
+  const xsV = pts.map(p => p.x), ysV = pts.map(p => p.y);
+  const xt = niceTicks(Math.min(...xsV), Math.max(...xsV), 6), yt = niceTicks(Math.min(...ysV), Math.max(...ysV), 5);
+  const X = v => ml + (v - xt[0]) / (xt[xt.length - 1] - xt[0]) * (W - ml - mr);
+  const Y = v => H - mb - (v - yt[0]) / (yt[yt.length - 1] - yt[0]) * (H - mt - mb);
+  const isYx = cx.id === 'year', isYy = cy.id === 'year';
+  const tf = (v, y) => y ? String(Math.round(v)) : v.toLocaleString('ko-KR', {maximumFractionDigits: 3});
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(cx.name) + '와 ' + esc(cy.name) + '의 산점도">';
+  yt.forEach(v => { s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="var(--line)" stroke-width="1"/><text x="' + (ml - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">' + tf(v, isYy) + '</text>'; });
+  xt.forEach(v => { s += '<line x1="' + X(v) + '" x2="' + X(v) + '" y1="' + mt + '" y2="' + (H - mb) + '" stroke="var(--line)" stroke-width="1" opacity="0.6"/><text x="' + X(v) + '" y="' + (H - mb + 18) + '" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">' + tf(v, isYx) + '</text>'; });
+  s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + (H - mb) + '" y2="' + (H - mb) + '" stroke="var(--line-strong)"/><line x1="' + ml + '" x2="' + ml + '" y1="' + mt + '" y2="' + (H - mb) + '" stroke="var(--line-strong)"/>';
+  s += '<text x="' + ((ml + W - mr) / 2) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">X: ' + esc(cx.name) + '</text>';
+  s += '<text transform="translate(16 ' + ((mt + H - mb) / 2) + ') rotate(-90)" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">y: ' + esc(cy.name) + '</text>';
+  const label = pts.length <= 20 && !isYx && !isYy;
+  pts.forEach(p => {
+    s += '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + (pts.length > 200 ? 3 : 5) + '" fill="var(--accent)" fill-opacity="0.75" stroke="var(--surface)" stroke-width="1"><title>' + p.yr + '년 · X ' + tf(p.x, isYx) + ' · y ' + tf(p.y, isYy) + '</title></circle>';
+    if (label) s += '<text x="' + (X(p.x) + 7) + '" y="' + (Y(p.y) - 7) + '" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">' + p.yr + '</text>';
+  });
+  s += '</svg>';
+  const r = pearson(pts.map(p => p.x), pts.map(p => p.y));
+  let rt = '점이 3개 이상 있어야 상관계수를 계산할 수 있어요.';
+  if (r != null){
+    const a = Math.abs(r);
+    const strength = a >= 0.7 ? '뚜렷한 직선 관계' : (a >= 0.4 ? '어느 정도의 직선 관계' : '약한 직선 관계');
+    const dir = r > 0 ? 'X가 커지면 y도 커지는' : 'X가 커지면 y는 작아지는';
+    rt = '상관계수 r = <b>' + r.toFixed(2) + '</b> · ' + (a >= 0.4 ? dir + ' ' : '') + strength + '가 있어요. r은 직선 관계만 재므로, 점이 꺾이거나 휘어진 모양인지도 함께 보세요.';
+  }
+  box.innerHTML = '<div class="row"><label for="sx" class="sub">X (속성)</label><select id="sx">' + opt(S.sx) + '</select><label for="sy" class="sub">y (예측할 값)</label><select id="sy">' + opt(S.sy) + '</select></div>' +
+    '<div class="chart-wrap">' + s + '</div><p class="rbox" style="margin:0">' + rt + '</p>' +
+    (label ? '<p class="meta" style="margin:0">점 옆의 숫자는 연도입니다.</p>' : '');
+  $('#sx').onchange = e => { S.sx = e.target.value; renderOutputs(columns()); };
+  $('#sy').onchange = e => { S.sy = e.target.value; renderOutputs(columns()); };
+}
+
+function csvText(cs, m){
+  const lines = [cs.map(c => c.name).join(',')];
+  m.rows.forEach(r => lines.push(cs.map(c => { const v = c.id === 'year' ? r.year : r[c.id]; return v == null ? '' : String(v); }).join(',')));
+  return lines.join('\n') + '\n';
+}
+
+function renderSave(cs, m){
+  const box = $('#save');
+  const bad = cs.some(c => c.err);
+  if (!m || !m.rows.length){ box.innerHTML = '<div class="empty">합친 결과가 생기면 저장할 수 있어요.</div>'; LAST = null; return; }
+  LAST = {cs, m};
+  box.innerHTML = '<div class="row"><label class="sub" for="outName">파일 이름</label><input type="text" id="outName" value="' + esc(S.outName) + '" spellcheck="false"></div>' +
+    '<div class="row"><button class="btn primary" type="button" id="dl"' + (bad ? ' disabled' : '') + '>CSV 내려받기</button>' +
+    '<button class="btn" type="button" id="cp"' + (bad ? ' disabled' : '') + '>코랩 붙여넣기 코드 복사</button></div>' +
+    '<div class="status' + (bad ? ' bad' : '') + '" id="saveStatus">' + (bad ? '2단계의 열 이름을 먼저 고쳐 주세요.' : '') + '</div>' +
+    '<p class="meta" style="margin:0">내려받은 파일은 코랩 왼쪽 <b>파일</b> 탭에 올린 뒤 <code>pd.read_csv(\'' + esc(S.outName) + '\')</code>로 읽습니다. 붙여넣기 코드는 파일을 올리지 않아도 셀 하나로 데이터를 만듭니다.</p>' +
+    '<textarea id="fallback" hidden readonly aria-label="복사할 내용"></textarea>';
+  $('#outName').oninput = e => { S.outName = e.target.value; };
+  $('#dl').onclick = download;
+  $('#cp').onclick = () => copyText(pasteCode(), $('#saveStatus'), '복사했어요. 코랩의 새 코드 셀에 붙여넣고 실행하세요.');
+}
+
+function pasteCode(){
+  const t = csvText(LAST.cs, LAST.m).trimEnd();
+  return 'import io\nimport pandas as pd\n\ncsv_text = """' + t + '"""\n\ndf = pd.read_csv(io.StringIO(csv_text))\ndf\n';
+}
+
+async function download(){
+  const st = $('#saveStatus');
+  let name = (S.outName || '').trim() || 'merged_data.csv';
+  if (!/\.csv$/i.test(name)) name += '.csv';
+  const data = csvText(LAST.cs, LAST.m);
+  const inClaude = !!(window.claude && window.claude.use);
+  if (!inClaude){
+    // Claude 밖(GitHub Pages, 내 컴퓨터에서 연 파일)에서는 브라우저의 일반 다운로드로 저장
+    try {
+      const url = URL.createObjectURL(new Blob([data], {type: 'text/csv;charset=utf-8'}));
+      const a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      st.className = 'status ok'; st.textContent = name + ' 파일을 내려받았어요. 크롬북의 "다운로드" 폴더를 확인하세요.';
+    } catch (e){
+      st.className = 'status bad'; st.textContent = '내려받기가 막혀 있어요. "코랩 붙여넣기 코드 복사"를 이용하세요.';
+    }
+    return;
+  }
+  let dl = null;
+  try { dl = await window.claude.use('downloads'); } catch (e){ dl = null; }
+  if (!dl){
+    st.className = 'status bad';
+    st.textContent = '이 화면에서는 내려받기를 쓸 수 없어요. "코랩 붙여넣기 코드 복사"를 이용하세요.';
+    return;
+  }
+  st.className = 'status'; st.textContent = '저장 확인 창을 확인하세요.';
+  try {
+    await dl.save({filename: name, data});
+    st.className = 'status ok'; st.textContent = name + ' 파일을 저장했어요.';
+  } catch (e){
+    const code = e && e.code;
+    st.className = 'status bad';
+    st.textContent = code === 'declined' ? '저장을 취소했어요.' : (code === 'rate_limited' ? '저장 창이 이미 열려 있어요. 잠시 뒤 다시 눌러 주세요.' : (code === 'rejected_extension' || code === 'bad_request' ? '파일 이름을 확인해 주세요. 이름 끝은 .csv여야 해요.' : '이 화면에서는 내려받기를 쓸 수 없어요. "코랩 붙여넣기 코드 복사"를 이용하세요.'));
+  }
+}
+
+function copyText(text, statusEl, okMsg){
+  const fb = $('#fallback');
+  const showFallback = () => {
+    if (fb){ fb.hidden = false; fb.value = text; fb.focus(); fb.select(); }
+    statusEl.className = 'status bad';
+    statusEl.textContent = '자동 복사가 막혀 있어요. 아래 상자의 내용이 선택되어 있으니 Ctrl+C로 복사하세요.';
+  };
+  try {
+    navigator.clipboard.writeText(text).then(() => { statusEl.className = 'status ok'; statusEl.textContent = okMsg; if (fb) fb.hidden = true; }, showFallback);
+  } catch (e){ showFallback(); }
+}
+
+function genCode(cs){
+  const L = ['import pandas as pd', ''];
+  const ready = S.files.every(f => f.ok && f.key != null);
+  if (!ready) return '# 파일 A와 B를 올리고 연도 열을 정하면 코드가 만들어집니다.';
+  S.files.forEach((f, fi) => {
+    const v = VAR[fi];
+    const mine = cs.filter(c => c.fi === fi);
+    L.push('# 파일 ' + LETTER[fi] + ': ' + f.name);
+    if (f.kind === 'excel'){
+      L.push(v + ' = pd.read_excel(' + pyStr(f.name) + ', sheet_name=' + pyStr(f.sheet) + ', header=None, skiprows=' + f.header + ', dtype=str)');
+    } else {
+      let args = pyStr(f.name) + ', header=None, skiprows=' + f.header + ', encoding=' + pyStr(f.enc) + ', dtype=str';
+      if (f.sep === '\t') args += ", sep='\\t'"; else if (f.sep === ';') args += ", sep=';'";
+      L.push(v + ' = pd.read_csv(' + args + ')');
+    }
+    if (f.header) L.push('# skiprows=' + f.header + ': 위쪽 ' + f.header + '줄(제목, 단위 등)을 건너뜀');
+    if (f.transpose) L.push(v + ' = ' + v + '.T  # 행렬 전환: 가로로 펼쳐진 연도를 세로로');
+    const hr = f.two ? 2 : 1;
+    const yearLine = v + "['year'] = pd.to_numeric(" + v + "['year'].astype(str).str.extract(r'((?:19|20)\\d{2})', expand=False), errors='coerce')  # 연도 숫자만 남기기";
+    const numLine = (df, col) => df + '[' + pyStr(col) + '] = pd.to_numeric(' + df + '[' + pyStr(col) + "].astype(str).str.replace(',', ''), errors='coerce')  # 쉼표 빼고 숫자로";
+    const aggCall = p => aggOf(f, p) === 'sum' ? 'sum(min_count=1)  # 같은 연도끼리 합계' : 'mean()  # 같은 연도끼리 평균';
+    const annualFlag = v + "['annual'] = " + v + "['year'].astype(str).str.strip().str.fullmatch(r'(?:19|20)\\d{2}\\s*(?:년|년도)?')  # 연간 값인 줄 표시";
+    const annualKeep = by => [
+      v + " = " + v + ".dropna(subset=['year'])",
+      'has_annual = ' + v + '.groupby(' + by + ")['annual'].transform('any')",
+      v + ' = ' + v + "[~has_annual | " + v + "['annual']].drop(columns='annual')  # 연간 값이 있는 해는 연간 값만 쓰기"
+    ];
+    const partLine = () => (f.dropPartial && f.partial.length) ? [v + ' = ' + v + "[~" + v + "['year'].isin([" + f.partial.map(x => x.y).join(', ') + '])]  # 덜 채워진 해 빼기'] : [];
+    L.push(v + ' = ' + v + '.iloc[' + hr + ':]  # 머리글 ' + hr + '줄 빼기');
+    const P = f.cats[0];
+    const multi = f.cats.length && f.pick.length > 1;
+    if (f.cats.length){
+      if (multi) L.push(v + ' = ' + v + '[' + v + '[' + P + '].astype(str).str.strip().isin([' + f.pick.map(pyStr).join(', ') + '])]  # \'' + f.headers[P] + '\' 열에서 고른 항목만 남기기');
+      else L.push(v + ' = ' + v + '[' + v + '[' + P + '].astype(str).str.strip() == ' + pyStr(f.pick[0]) + ']  # \'' + f.headers[P] + '\' 열에서 이 항목만 남기기');
+      activeFilters(f).forEach(i => L.push(v + ' = ' + v + '[' + v + '[' + i + '].astype(str).str.strip() == ' + pyStr(f.filters[i]) + ']  # \'' + f.headers[i] + '\' 열에서 이것만 남기기'));
+    }
+    if (!multi){
+      const labels = ["'" + f.headers[f.key] + "'(연도)", ...f.vals.map(ci => "'" + f.headers[ci] + "'")].join(', ');
+      L.push(v + ' = ' + v + '[[' + [f.key, ...f.vals].join(', ') + ']].copy()  # ' + labels + ' 열만 고르기');
+      L.push(v + '.columns = [' + ['year', ...mine.map(c => c.name)].map(pyStr).join(', ') + ']');
+      if (f.annualMix) L.push(annualFlag);
+      L.push(yearLine);
+      if (f.annualMix) L.push(...annualKeep("'year'"));
+      mine.forEach(c => L.push(numLine(v, c.name)));
+      L.push(...partLine());
+      if (f.dup) L.push(v + ' = ' + v + ".groupby('year', as_index=False)." + aggCall(f.cats.length ? f.pick[0] : null));
+    } else {
+      const tmp = f.vals.map((_, k) => '__v' + k);
+      L.push(v + ' = ' + v + '[[' + [f.key, P, ...f.vals].join(', ') + ']].copy()  # 연도, 항목, 값 열만 고르기');
+      L.push(v + '.columns = [' + ['year', 'item', ...tmp].map(pyStr).join(', ') + ']');
+      L.push(v + "['item'] = " + v + "['item'].astype(str).str.strip()");
+      if (f.annualMix) L.push(annualFlag);
+      L.push(yearLine);
+      if (f.annualMix) L.push(...annualKeep("['year', 'item']"));
+      tmp.forEach(t => L.push(numLine(v, t)));
+      L.push(...partLine());
+      L.push('# 항목마다 따로 떼어 열 이름을 붙이기');
+      const parts = [];
+      f.pick.forEach((p, k) => {
+        const pv = v + '_' + (k + 1); parts.push(pv);
+        const ren = f.vals.map((ci, j) => pyStr(tmp[j]) + ': ' + pyStr((mine.find(c => c.p === p && c.ci === ci) || {}).name)).join(', ');
+        L.push(pv + ' = ' + v + '[' + v + "['item'] == " + pyStr(p) + '][[' + ['year', ...tmp].map(pyStr).join(', ') + ']].rename(columns={' + ren + '})');
+        if (f.dup) L.push(pv + ' = ' + pv + ".groupby('year', as_index=False)." + aggCall(p));
+      });
+      L.push(v + ' = ' + parts[0] + parts.slice(1).map(pv => ".merge(" + pv + ", on='year', how='outer')").join('') + '  # 항목별 표를 연도로 이어 붙이기');
+    }
+    L.push('');
+  });
+  L.push('# 같은 연도끼리 합치기 (두 파일에 모두 있는 연도만 남김)');
+  L.push("df = pd.merge(a, b, on='year', how='inner')");
+  L.push(S.dropNA ? 'df = df.dropna()  # 빈 값이 있는 줄 빼기' : "df = df.dropna(subset=['year'])");
+  L.push("df['year'] = df['year'].astype(int)");
+  L.push("df = df.sort_values('year').reset_index(drop=True)");
+  L.push('');
+  L.push('# 산점도로 확인하기');
+  L.push('import matplotlib.pyplot as plt');
+  const cx = cs.find(c => c.id === S.sx), cy = cs.find(c => c.id === S.sy);
+  if (cx && cy){
+    L.push('plt.scatter(df[' + pyStr(cx.name) + '], df[' + pyStr(cy.name) + '])');
+    L.push('plt.xlabel(' + pyStr(cx.name) + ')');
+    L.push('plt.ylabel(' + pyStr(cy.name) + ')');
+    L.push('plt.show()');
+    L.push("print('r =', df[" + pyStr(cx.name) + '].corr(df[' + pyStr(cy.name) + ']).round(2))');
+  }
+  L.push('');
+  L.push('df.to_csv(' + pyStr((S.outName || 'merged_data.csv').replace(/\.csv$/i, '') + '.csv') + ', index=False)  # 합친 파일 저장');
+  L.push('df');
+  return L.join('\n');
+}
+
+function renderOutputs(cs){
+  const m = merge(cs);
+  renderResult(cs, m);
+  renderScatter(cs, m);
+  renderSave(cs, m);
+  $('#code').textContent = genCode(cs);
+}
+
+function renderAll(){
+  renderBanner();
+  renderFile(0); renderFile(1);
+  const cs = columns();
+  renderNames(cs);
+  renderOutputs(cs);
+}
+
+function loadSamples(){
+  [[SAMPLE_A, '예시_온실가스_배출량.csv'], [SAMPLE_B, '예시_국내총생산.csv']].forEach(([txt, name], fi) => {
+    const f = S.files[fi];
+    Object.assign(f, newFile(), {name, sample: true, kind: 'csv', enc: 'utf-8'});
+    const p = parseCSV(txt); f.sep = p.sep;
+    setRaw(fi, p.rows);
+  });
+  S.names = {'0:전체': 'emission', '1:국내총생산(GDP)': 'gdp'};
+  S.sx = '1:국내총생산(GDP)'; S.sy = '0:전체';
+  S.dropNA = true;
+  renderAll();
+}
+
+$('#copyCode').onclick = () => copyText($('#code').textContent, $('#codeStatus'), '코드를 복사했어요.');
+
+loadSamples();
+})();
+</script>
+
+</body>
+</html>
